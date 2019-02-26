@@ -1,0 +1,44 @@
+policies:
+
+- name: iam-role-basic-deny
+  comment: "Ensure that all IAM roles have the basic_deny policy attached unless it has an exception"
+  resource: iam-role
+  filters:
+    - and:
+      - type: no-specific-managed-policy
+        value: basic_deny
+      - type: value
+        key: RoleName
+        op: ni
+        value:
+        - ROLE1
+        - ROLE2
+        - ROLE3
+        - ROLE4
+        - ROLE5
+      - not:
+        - type: value
+          key: RoleName
+          op: glob
+          value: NOTROLE1
+      - not:
+        - type: value
+          key: RoleName
+          value: NOTROLE2
+  mode:
+    schedule: "rate(24 hours)"
+    type: periodic
+    execution-options:
+      output_dir: s3://BUCKETNAME/CustodianLogs/{account_id}/
+  actions:
+    - type: notify
+      action_desc: |
+        Custodian has identified a role without the basic_deny policy attached
+      cc: ["#000000"]
+      subject: "IAM Role without basic_deny"
+      to: ["slack"]
+      transport:
+        type: sqs
+        queue: MESSAGEQUEUENAME
+      violation_desc: |
+        All IAM Roles must have the basic_deny policy attached unless there is a documented exception

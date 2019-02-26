@@ -1,0 +1,88 @@
+policies:
+
+- name: s3-tag-compliance-mark
+  resource: s3
+  comment: |
+    Find all s3 buckets that are not compliant
+    to tagging policies, tags them as such,
+    and sends a notification.
+  region: us-east-1
+  filters:
+    - "tag:c7n_tag_compliance": absent
+    - or:
+      - "tag:REQUIREDTAG1": absent
+      - "tag:REQUIREDTAG2": absent
+      - "tag:REQUIREDTAG3": absent
+      - "tag:REQUIREDTAG4": absent
+      - "tag:REQUIREDTAG5": absent
+      - "tag:REQUIREDTAG6": absent
+  mode:
+    schedule: "rate(24 hours)"
+    type: periodic
+    execution-options:
+      output_dir: s3://BUCKETNAME/CustodianLogs/{account_id}/
+  actions:
+    - type: tag
+      key: c7n_tag_compliance
+      value: 'non-conformant'
+    - type: notify
+      action_desc: |
+        Please correctly tag S3 buckets.
+      subject: "S3 Bucket Tag Compliance"
+      to: ["slack"]
+      transport:
+        type: sqs
+        queue: MESSAGEQUEUENAME
+      violation_desc: "S3 buckets must have the required tags."
+
+- name: s3-tag-compliance-unmark
+  resource: s3
+  comment: |
+    Unmark s3 buckets that are now compliant to tagging policies.
+  region: us-east-1
+  filters:
+    - "tag:c7n_tag_compliance": not-null
+    - "tag:REQUIREDTAG1": not-null
+    - "tag:REQUIREDTAG2": not-null
+    - "tag:REQUIREDTAG3": not-null
+    - "tag:REQUIREDTAG4": not-null
+    - "tag:REQUIREDTAG5": not-null
+    - "tag:REQUIREDTAG6": not-null
+  mode:
+    schedule: "rate(24 hours)"
+    type: periodic
+    execution-options:
+      output_dir: s3://BUCKETNAME/CustodianLogs/{account_id}/
+  actions:
+    - type: unmark
+      tags: [c7n_tag_compliance]
+
+- name: s3-tag-compliance-notify
+  resource: s3
+  comment: |
+    Notify of s3 buckets that remain not compliant to tagging policies.
+  region: us-east-1
+  filters:
+    - "tag:c7n_tag_compliance": not-null
+    - or:
+      - "tag:REQUIREDTAG1": absent
+      - "tag:REQUIREDTAG2": absent
+      - "tag:REQUIREDTAG3": absent
+      - "tag:REQUIREDTAG4": absent
+      - "tag:REQUIREDTAG5": absent
+      - "tag:REQUIREDTAG6": absent
+  mode:
+    schedule: "rate(24 hours)"
+    type: periodic
+    execution-options:
+      output_dir: s3://BUCKETNAME/CustodianLogs/{account_id}/
+  actions:
+    - type: notify
+      action_desc: |
+        Please correctly tag S3 buckets.
+      subject: "S3 Bucket Tag Compliance"
+      to: ["slack"]
+      transport:
+        type: sqs
+        queue: MESSAGEQUEUENAME
+      violation_desc: "S3 buckets must have the required tags."

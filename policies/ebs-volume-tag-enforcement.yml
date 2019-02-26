@@ -1,0 +1,88 @@
+policies:
+
+- name: ebs-volume-tag-compliance-mark
+  resource: ebs
+  comment: |
+    Find all attached EBS volumes that are not compliant to tagging policies,
+    attempt to copy the instance tags, and tag as not compliant.
+  filters:
+    - "tag:c7n_tag_compliance": absent
+    - type: value
+      key: "Attachments[0].Device"
+      value: not-null
+    - or:
+      - "tag:REQUIREDTAG1": absent
+      - "tag:REQUIREDTAG2": absent
+      - "tag:REQUIREDTAG3": absent
+      - "tag:REQUIREDTAG4": absent
+      - "tag:REQUIREDTAG5": absent
+      - "tag:REQUIREDTAG6": absent
+  mode:
+    schedule: "rate(60 minutes)"
+    type: periodic
+    execution-options:
+      output_dir: s3://BUCKETNAME/CustodianLogs/{account_id}/
+  actions:
+    - type: copy-instance-tags
+      tags:
+        - REQUIREDTAG1
+        - REQUIREDTAG2
+        - REQUIREDTAG3
+        - REQUIREDTAG4
+        - REQUIREDTAG5
+        - REQUIREDTAG6
+    - type: tag
+      key: c7n_tag_compliance
+      value: 'non-conformant'
+
+- name: ebs-volume-tag-compliance-unmark
+  resource: ebs
+  comment: |
+    Unmark all EBS volumes that are now compliant to tagging policies.
+  filters:
+    - "tag:c7n_tag_compliance": not-null
+    - "tag:REQUIREDTAG1": not-null
+    - "tag:REQUIREDTAG2": not-null
+    - "tag:REQUIREDTAG3": not-null
+    - "tag:REQUIREDTAG4": not-null
+    - "tag:REQUIREDTAG5": not-null
+    - "tag:REQUIREDTAG6": not-null
+  mode:
+    schedule: "rate(30 minutes)"
+    type: periodic
+    execution-options:
+      output_dir: s3://BUCKETNAME/CustodianLogs/{account_id}/
+  actions:
+    - type: unmark
+      tags: [c7n_tag_compliance]
+
+- name: ebs-volume-tag-compliance-notify
+  resource: ebs
+  comment: |
+    Notify on EBS volumes that remain non-compliant to tagging policies in
+    spite of an automated correction attempt.
+  filters:
+    - "tag:c7n_tag_compliance": not-null
+    - or:
+      - "tag:REQUIREDTAG1": absent
+      - "tag:REQUIREDTAG2": absent
+      - "tag:REQUIREDTAG3": absent
+      - "tag:REQUIREDTAG4": absent
+      - "tag:REQUIREDTAG5": absent
+      - "tag:REQUIREDTAG6": absent
+  mode:
+    schedule: "rate(24 hours)"
+    type: periodic
+    execution-options:
+      output_dir: s3://BUCKETNAME/CustodianLogs/{account_id}/
+  actions:
+    - type: notify
+      action_desc: |
+        Custodian attempted to copy ec2 instance tags to the EBS volume but it
+        remains non-comformant. Please correctly tag the EBS volume.
+      subject: "EBS Volume Tag Compliance"
+      to: ["slack"]
+      transport:
+           type: sqs
+           queue: MESSAGEQUEUENAME
+      violation_desc: "EBS volumes must have the required tags."

@@ -1,0 +1,29 @@
+policies:
+
+- name: rds-terminate-publicly-available-instance-on-creation
+  resource: rds
+  comment: |
+    Terminate publicly available RDS upon creation
+  filters:
+   - "tag:c7n_rds_publicly_available_exempt": absent
+   - PubliclyAccessible: true
+  mode:
+    type: cloudtrail
+    execution-options:
+      output_dir: s3://BUCKETNAME/CustodianLogs/{account_id}/
+    events: 
+      - CreateDBInstance
+  actions:
+   - type: delete
+     skip-snapshot: true
+   - type: notify
+     action_desc: |
+        Custodian has terminated publicly available RDS instance. Please modify the RDS 
+        instance to be private or correctly tag for exemption.
+     subject: "RDS Instance Available to Public"
+     to: ["slack"]
+     transport:
+       type: sqs
+       queue: MESSAGEQUEUENAME
+     violation_desc: "RDS Instance available to public."
+      
