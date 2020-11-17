@@ -5,12 +5,15 @@ policies:
   comment: "Remove rules allowing unrestricted ingress to ports [22, 3389]"
   filters:
     - "tag:c7n_security_group_restrict_admin_ingress_exempt": absent
-    - type: ingress
-      Ports: [22,3389]
-      Cidr:
-        value: 0.0.0.0/0
-        op: eq
-        value_type: cidr
+    - or:
+      - type: ingress
+        Ports: [22,3389]
+        Cidr:
+          value: 0.0.0.0/0
+      - type: ingress
+        Ports: [22,3389]
+        CidrV6:
+          value: "::/0"
   mode:
     type: cloudtrail
     execution-options:
